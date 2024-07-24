@@ -1,6 +1,5 @@
-
-const { User } = require("../models");
 const { AuthenticationError } = require("apollo-server-express");
+const { User } = require("../models");
 const { signToken } = require("../utils/auth");
 
 const resolvers = {
@@ -8,70 +7,53 @@ const resolvers = {
     me: async (parent, args, context) => {
       if (context.user) {
         const userData = await User.findOne({ _id: context.user._id })
-          .select("-__v -password")
-          .populate("book");
+          .populate("savedBooks")
+          .select("-__v -password");
+        console.log(userData);
+
         return userData;
       }
+
       throw new AuthenticationError("Not logged in");
-    },
-    users: async () => {
-      return User.find().select("-__v -password").populate("book");
-    },
-    user: async (parent, { username }) => {
-      return User.findOne({ username })
-        .select("-__v -password")
-        .populate("book");
     },
   },
 
   Mutation: {
-    login: async (parent, { email, password }) => {
-      const user = await User.findOne({ email });
-      if (!user) {
-        throw new AuthenticationError("Incorrect password");
-      }
-      const correctPw = await user.isCorrectPassword(password);
-      if (!correctPw) {
-        throw new AuthenticationError("Incorrect password");
-      }
-      const token = signToken(user);
-      return { token, user };
-    },
-
     addUser: async (parent, args) => {
       const user = await User.create(args);
       const token = signToken(user);
+
       return { token, user };
     },
+    login: async (parent, { email, password }) => {
+      const user = await User.findOne({ email });
 
-    saveBook: async (parent, { bookInput }, context) => {
-      console.log(context.user);
-      console.log(bookInput);
+      if (!user) {
+        throw new AuthenticationError("Incorrect credentials");
+      }
+
+      const correctPw = await user.isCorrectPassword(password);
+
+      if (!correctPw) {
+        throw new AuthenticationError("Incorrect credentials");
+      }
+
+      const token = signToken(user);
+      return { token, user };
+    },
+    //fixed books returning on the Saved books page by page passing in args, removing input and adding to se the savedbooks args.book instead of input
+    saveBook: async (parent, args, context) => {
       if (context.user) {
-        const book = await User.findByIdAndUpdate(
+        console.log(args);
+        const updatedUser = await User.findByIdAndUpdate(
           { _id: context.user._id },
-          { $push: { savedBooks: bookInput } },
+          { $addToSet: { savedBooks: args.book } },
           { new: true }
         );
-        return book;
+        return updatedUser;
       }
-      throw new AuthenticationError("Log in required!");
+      throw new AuthenticationError("You need to be logged in!");
     },
-
-    removeBook: async (parent, args, context) => {
-      console.log(args);
-      if (context.user) {
-        const book = await User.findByIdAndUpdate(
-          { _id: context.user._id },
-          { $pull: { savedBooks: args } },
-          { new: true }
-        );
-
-        return book;
-      }
-      throw new AuthenticationError("Log in required!");
-    },
-
     removeBook: async (parent, args, context) => {
       if (context.user) {
         const updatedUser = await User.findOneAndUpdate(
@@ -81,7 +63,7 @@ const resolvers = {
         );
         return updatedUser;
       }
-      throw new AuthenticationError("Log in required!");
+      throw new AuthenticationError("You need to be logged in!");
     },
   },
 };

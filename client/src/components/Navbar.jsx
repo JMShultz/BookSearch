@@ -6,7 +6,7 @@ import LoginForm from './LoginForm';
 
 import Auth from '../utils/auth';
 
-const AppNavbar = () => {
+const AppNavbar1 = () => {
   // set modal display state
   const [showModal, setShowModal] = useState(false);
 
